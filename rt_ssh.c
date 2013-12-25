@@ -42,31 +42,15 @@ volatile unsigned *gpio;
 // This is because the transistor board I use for talking to the Heng
 // Long RX18 inverts the signal.  So the GPIO_SET pointer here actually
 // sets the GPIO pin low - but that ends up as a high at the tank.
-#define GPIO_CLR *(gpio+7)  // sets   bits which are 1, ignores bits which are 0
-#define GPIO_SET *(gpio+10) // clears bits which are 1, ignores bits which are 0
+#define GPIO_SET *(gpio+7)  // sets   bits which are 1, ignores bits which are 0
+#define GPIO_CLR *(gpio+10) // clears bits which are 1, ignores bits which are 0
 
 // GPIO pin that connects to the Heng Long main board
 // (Pin 7 is the top right pin on the Pi's GPIO, next to the yellow video-out)
-#define PIN 7
+#define PIN 8
 
 // Heng Long tank bit-codes
-/*int idle = 0xFE3C0F00;
-int ignition = 0xFE3C10B0;
-int neutral = 0xFE3C0F00;
-int machine_gun = 0xFE3C107C;
-int cannon = 0xFE3E1030;
-int turret_left = 0xFE3C9018;
-int turret_right = 0xFE3D103C;
-int turret_down = 0xFE3C5028;
-int turret_fire = 0xFE3C3030;
-int fwd_slow = 0xFE301008;
-int fwd_fast = 0xFE28102C; //0xFE1C1030;
-int rev_slow = 0xFE4C1024; //0xFE3C1038;
-int rev_fast = 0xFE541000;
-int right_slow = 0xFE3C1620; //0xFE3C152C;
-int right_fast = 0xFE3C1818;
-int left_slow = 0xFE3C081C; //0xFE3C0B10;
-int left_fast = 0xFE400010;*/
+
 int idle = 0xFE40121C;
 int ignition = 0xFE401294;
 int left_slow = 0xFE400608;
@@ -90,6 +74,31 @@ void setup_io();
 void sendCode(int code);
 void sendBit(int bit);
 
+
+
+int CRC(int data)
+{
+  int c;
+  c = 0;
+  c ^= data & 0x03;
+  c ^= (data >> 2) & 0x0F;
+  c ^= (data >> 6) & 0x0F;
+  c ^= (data >> 10) & 0x0F;
+  c ^= (data >> 14) & 0x0F;
+  c ^= (data >> 18) & 0x0F;
+  return c;
+}
+
+int data2frame(int data)
+{
+  int frame;
+  frame = 0;
+  frame |= CRC(data) << 2;
+  frame |= data << 6;
+  frame |= 0xFE000000;
+  return frame;
+}
+
 // Main
 int main(int argc, char **argv) { 
 
@@ -109,17 +118,18 @@ int main(int argc, char **argv) {
   printf("Idle\n");
   for (i=0; i<40; i++) 
   {
-    sendCode(idle);
+    //sendCode(idle);
+    sendCode(data2frame(0x0040121C>>6));
   }
   printf("Ignition\n");
   for (i=0; i<10; i++) 
   {
-    sendCode(ignition);
+    sendCode(data2frame(0x00401294>>6));
   }
   printf("Waiting for ignition\n");
   for (i=0; i<300; i++) 
   {
-    sendCode(idle);
+    sendCode(data2frame(0x0040121C>>6));
   }
   
   // Loop, sending movement commands indefinitely
